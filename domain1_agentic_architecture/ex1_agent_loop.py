@@ -20,9 +20,18 @@ Expected flow:
 
 import anthropic
 import json
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-client = anthropic.Anthropic()
-MODEL = "claude-opus-4-6"
+load_dotenv(override=True)
+
+WORKDIR = Path.cwd()
+if os.getenv("ANTHROPIC_BASE_URL"):
+    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+
+client = anthropic.Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+MODEL = os.environ["MODEL_ID"]
 
 # --- Tool definition -----------------------------------------------------------
 
@@ -54,6 +63,29 @@ def dispatch_tool(name: str, tool_input: dict) -> str:
 
 
 # --- Agent loop ---------------------------------------------------------------
+# TODO: implement the loop
+#
+# Skeleton:
+#
+# while True:
+#     response = client.messages.create(...)
+#
+#     if response.stop_reason == "end_turn":
+#         # TODO: extract the text from response.content and return it
+#         ...
+#
+#     if response.stop_reason == "tool_use":
+#         # TODO: find all tool-use blocks in response.content
+#         # TODO: for each, call dispatch_tool() and collect results
+#         # TODO: append the assistant turn and a user turn with tool results
+#         # TODO: continue the loop
+#         ...
+#
+# ANTI-PATTERN — do NOT do this:
+#   for i in range(10):          # arbitrary cap
+#       ...
+#   if "final answer" in text:   # parsing NL to detect done
+#       break
 
 def run_agent(user_message: str) -> str:
     """
@@ -62,31 +94,29 @@ def run_agent(user_message: str) -> str:
     """
     messages = [{"role": "user", "content": user_message}]
 
-    # TODO: implement the loop
-    #
-    # Skeleton:
-    #
-    # while True:
-    #     response = client.messages.create(...)
-    #
-    #     if response.stop_reason == "end_turn":
-    #         # TODO: extract the text from response.content and return it
-    #         ...
-    #
-    #     if response.stop_reason == "tool_use":
-    #         # TODO: find all tool-use blocks in response.content
-    #         # TODO: for each, call dispatch_tool() and collect results
-    #         # TODO: append the assistant turn and a user turn with tool results
-    #         # TODO: continue the loop
-    #         ...
-    #
-    # ANTI-PATTERN — do NOT do this:
-    #   for i in range(10):          # arbitrary cap
-    #       ...
-    #   if "final answer" in text:   # parsing NL to detect done
-    #       break
-    raise NotImplementedError("Implement the loop")
+    while True:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            messages=messages,
+            tools=TOOLS
+        )
 
+        messages.append({"role": "assistant", "content": response.content})
+
+        if response.stop_reason == "end_turn":
+            return next((b.text for b in response.content if b.type == "text"), "") 
+        
+        if response.stop_reason == "tool_use":
+            results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    results.append({"type": "tool_result", 
+                                    "tool_use_id": block.id, 
+                                    "content": dispatch_tool(block.name, block.input)})
+            messages.append({"role": "user", "content": results})
+        else:
+            raise RuntimeError(f"Unexpected stop_reason: {response.stop_reason!r}")
 
 # --- Run ----------------------------------------------------------------------
 
