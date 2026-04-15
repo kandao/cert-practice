@@ -1,0 +1,46 @@
+{
+  "_exercise": "Domain 2.4 — MCP Server Config",
+  "_exam_focus": [
+    ".mcp.json in the project root = project-scoped config (checked into repo, shared with team)",
+    "~/.claude.json = user-scoped config (personal, applies across all projects)",
+    "Project config takes precedence over user config for the same server name",
+    "Each server entry needs: type, and either 'command'+'args' (local) or 'url' (remote)",
+    "allowedTools scopes which tools THIS project can call on the server"
+  ],
+
+  "_task": "Fill in the TODOs below to produce a valid .mcp.json. Then answer the questions.",
+
+  "_questions": [
+    "Q1: A teammate clones this repo. Which servers will they automatically have? Which won't they have?",
+    "Q2: You have a personal 'my-notes' MCP server you want in ALL your projects. Where do you configure it?",
+    "Q3: The 'database' server exposes 10 tools but this project should only call 'query' and 'insert'. How do you restrict it?"
+  ],
+
+  "mcpServers": {
+    "filesystem": {
+      "type": "TODO: local or remote?",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/workspace"],
+      "_note": "Local stdio server — runs as a subprocess. 'command' + 'args' required."
+    },
+
+    "database": {
+      "type": "local",
+      "command": "TODO: fill in the command to start your DB MCP server",
+      "args": ["TODO"],
+      "allowedTools": ["TODO: list only the tools this project needs"]
+    },
+
+    "remote-search": {
+      "type": "TODO: local or remote?",
+      "url": "https://mcp.example.com/search",
+      "_note": "Remote HTTP server — 'url' required, no 'command'/'args'."
+    }
+  },
+
+  "_answers": {
+    "Q1": "TODO",
+    "Q2": "TODO — specify the file path",
+    "Q3": "TODO — specify the config field"
+  }
+}
