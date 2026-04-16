@@ -25,10 +25,18 @@ TASK:
 
 import anthropic
 import json
-import re
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-client = anthropic.Anthropic()
-MODEL = "claude-opus-4-6"
+load_dotenv(override=True)
+
+WORKDIR = Path.cwd()
+if os.getenv("ANTHROPIC_BASE_URL"):
+    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+
+client = anthropic.Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+MODEL = os.environ["MODEL_ID"]
 
 REFUND_LIMIT = 500.0
 
@@ -67,8 +75,10 @@ def apply_post_tool_use_hook(tool_name: str, tool_input: dict, tool_result: str)
     ANTI-PATTERN — do NOT do this instead:
         system_prompt = "Never approve refunds over $500"  # probabilistic, not guaranteed
     """
-    # TODO: implement
-    raise NotImplementedError
+    if tool_name == "process_refund":
+        if tool_input.get("amount", 0) > REFUND_LIMIT:
+                return "Refund ${amount} exceeds $500 limit"
+    return tool_result
 
 
 # --- Agent loop ---------------------------------------------------------------
@@ -94,14 +104,11 @@ def run_agent(user_message: str) -> str:
             for block in response.content:
                 if block.type != "tool_use":
                     continue
-
+                
                 # Run the actual tool
                 raw_result = process_refund(**block.input)
-
-                # TODO: apply the hook — pass raw_result through apply_post_tool_use_hook()
-                # Use the hooked result (not raw_result) in tool_results
-                final_result = ...  # TODO
-
+                
+                final_result = apply_post_tool_use_hook(block.name, block.input, raw_result)
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
