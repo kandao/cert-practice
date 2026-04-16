@@ -25,9 +25,19 @@ TASK:
 """
 
 import anthropic
+import json
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-client = anthropic.Anthropic()
-MODEL = "claude-opus-4-6"
+load_dotenv(override=True)
+
+WORKDIR = Path.cwd()
+if os.getenv("ANTHROPIC_BASE_URL"):
+    os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
+
+client = anthropic.Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
+MODEL = os.environ["MODEL_ID"]
 
 
 # --- Subagent runner ----------------------------------------------------------
@@ -40,8 +50,22 @@ def run_subagent(system_prompt: str, user_message: str) -> str:
     TODO: call client.messages.create with the given system + user message.
     Return the text content of the response.
     """
-    # TODO: implement
-    raise NotImplementedError
+    messages = [{"role": "user", "content": user_message}]
+    print(user_message)
+    print(messages)
+    print(system_prompt)
+    print("\n\n-------\n")
+    response = client.messages.create(
+            system=system_prompt,
+            model=MODEL,
+            max_tokens=1024,
+            messages=messages
+        )
+    if response.stop_reason == "end_turn":
+            return next((b.text for b in response.content if b.type == "text"), "") 
+    else:
+         raise RuntimeError(f"Unexpected stop_reason: {response.stop_reason!r}")
+    
 
 
 # --- Coordinator --------------------------------------------------------------
@@ -67,11 +91,11 @@ def run_coordinator(topic: str) -> str:
         "suitable for a general audience. No bullet points."
     )
 
-    # TODO: Step 1 — call ResearchAgent with topic only
-    facts = ...
+    # Step 1 — call ResearchAgent with topic only
+    facts = run_subagent(research_system, topic)
 
-    # TODO: Step 2 — call SummaryAgent with facts only (not topic, not history)
-    summary = ...
+    # Step 2 — call SummaryAgent with facts only (not topic, not history)
+    summary = run_subagent(summary_system, facts)
 
     return summary
 
